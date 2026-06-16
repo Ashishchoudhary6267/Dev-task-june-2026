@@ -1,0 +1,24 @@
+{
+  "name": "fms-backend",
+  "version": "1.0.0",
+  "description": "FMS Backend - Cloudflare Workers",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "start": "wrangler dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^1.0.2",
+    "@sentry/cloudflare": "^10.55.0",
+    "@supabase/supabase-js": "^2.96.0",
+    "dotenv": "^17.4.2",
+    "hono": "^4.4.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.73.0"
+  }
+}

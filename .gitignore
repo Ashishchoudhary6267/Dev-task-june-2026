@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Secrets / env — NEVER commit these
+.env
+.env.*
+!.env.example
+.dev.vars
+.prod.vars
+.env.sentry-build-plugin
+
+# Build output
+.next/
+out/
+dist/
+.wrangler/
+
+# Misc
+.DS_Store
+*.log

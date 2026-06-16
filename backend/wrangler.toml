@@ -1,0 +1,33 @@
+name = "fms-backend"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ─────────────────────────────────────────────────────────────
+# Non-secret config. Secrets (Supabase keys, OAuth, AI keys, etc.)
+# go in .dev.vars locally and `wrangler secret put <KEY>` in prod.
+# See .dev.vars.example for the full list of required variables.
+# ─────────────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT = "development"
+# Gmail address used to send transactional email (placeholder — set your own)
+OAUTH_EMAIL = "your-gmail@gmail.com"
+# Comma-separated list of frontend origins allowed by CORS
+ALLOWED_ORIGINS = "http://localhost:3000"
+
+# ─────────────────────────────────────────────────────────────
+# Cloudflare KV namespace used for caching (bound as FMS_CACHE).
+# Create your own namespace and paste its id below:
+#   npx wrangler kv namespace create FMS_CACHE
+# ─────────────────────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "FMS_CACHE"
+id = "<your-kv-namespace-id>"
+
+# ─────────────────────────────────────────────────────────────
+# Scheduled cron triggers:
+#   "0 10 * * *"   = daily 10:00 UTC  -> follow-up emails
+#   "*/10 * * * *" = every 10 minutes -> overdue SLA check
+# ─────────────────────────────────────────────────────────────
+[triggers]
+crons = ["0 10 * * *", "*/10 * * * *"]
