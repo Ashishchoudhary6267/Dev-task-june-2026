@@ -17,3 +17,20 @@ export const requireSuperAdmin = async (c, next) => {
     }
     await next();
 };
+
+/**
+ * Workload endpoints are management-only.
+ * Allowed: admin, controller, superadmin (platform_role)
+ *          OR interim_manager (workflow_role on a member account)
+ * Blocked: plain member accounts
+ */
+export const requireWorkloadAccess = async (c, next) => {
+    const user = c.get("user");
+    const allowedPlatformRoles = ["admin", "controller", "superadmin"];
+    const isInterimManager = user?.workflow_role === "interim_manager";
+    if (!allowedPlatformRoles.includes(user?.platform_role) && !isInterimManager) {
+        return c.json({ message: "Workload access restricted to management roles" }, 403);
+    }
+    await next();
+};
+

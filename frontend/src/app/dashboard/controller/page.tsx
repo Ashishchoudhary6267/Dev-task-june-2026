@@ -40,7 +40,8 @@ import { useClientApprovalStore } from '@/lib/zustand/client-approvals/client-ap
 import RejectionAnalyticsTab from '@/components/MemberTaskModal/rejection-analytics-tab';
 import SLAExtensionRequestsTab from '@/components/sla-extension/sla-extension-requests-tab';
 import { useSLAExtensionStore } from '@/lib/zustand/sla-extension/sla-extension';
-type Tab = 'overview' | 'users' | 'projects' | 'tasks' | 'clients' | 'permissions' | 'reports' | 'settings' | 'instances' | 'overdue' | 'client-approvals' | 'rejections' | 'sla-requests';
+import WorkloadManagementTab from '@/components/workload/workload-management-tab';
+type Tab = 'overview' | 'users' | 'projects' | 'tasks' | 'clients' | 'permissions' | 'reports' | 'settings' | 'instances' | 'overdue' | 'client-approvals' | 'rejections' | 'sla-requests' | 'workload';
 
 import {
     Users, FolderKanban, CheckSquare, Activity,
@@ -380,6 +381,13 @@ function ControllerDashboardContent() {
                 {
                     activeTab === 'settings' && (
                         <CompanySettings />
+                    )
+                }
+
+                {/* workload management tab — controller & interim_manager only */}
+                {
+                    activeTab === 'workload' && (
+                        <WorkloadManagementTab />
                     )
                 }
 

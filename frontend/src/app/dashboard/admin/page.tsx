@@ -31,8 +31,10 @@ import { useStatsStore } from '@/lib/zustand/stats/dashboard-stats';
 import OverviewTab from '@/components/dashboard/overview-tab';
 import { useInstanceStore } from '@/lib/zustand/instances/instances';
 import ControllerPerformance from '@/components/dashboard/controller-performance';
+import WorkloadManagementTab from '@/components/workload/workload-management-tab';
 
-type Tab = 'users' | 'tasks' | 'clients' | 'templates' | 'permissions' | 'reports' | 'settings' | 'holidays' | 'performance';
+type Tab = 'users' | 'tasks' | 'clients' | 'templates' | 'permissions' | 'reports' | 'settings' | 'holidays' | 'performance' | 'workload';
+
 
 
 function AdminDashboardContent() {
@@ -327,6 +329,12 @@ function AdminDashboardContent() {
             {
                 activeTab === 'performance' && (
                     <ControllerPerformance />
+                )
+            }
+
+            {
+                activeTab === 'workload' && (
+                    <WorkloadManagementTab />
                 )
             }
 

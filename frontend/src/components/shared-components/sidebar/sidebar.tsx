@@ -24,6 +24,7 @@ import {
     CheckSquare2,
     Zap,
     CalendarClock,
+    CalendarRange,
     Activity,
     AlertCircle,
     AlertTriangle,
@@ -189,6 +190,17 @@ const Sidebar = () => {
                                 </span>
                             </button>
 
+                            {/* Workload */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=workload')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'workload') && styles.active)}
+                            >
+                                <CalendarRange className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Workload
+                                </span>
+                            </button>
+
                             {/* Performance */}
                             <button
                                 onClick={() => handleNavClick('/dashboard/admin?tab=performance')}
@@ -279,6 +291,17 @@ const Sidebar = () => {
                                 <CalendarClock className="h-5 w-5" />
                                 <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
                                     SLA Request
+                                </span>
+                            </button>
+
+                            {/* Workload — Controller & Interim Manager only */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/controller?tab=workload')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/controller' && currentTab === 'workload') && styles.active)}
+                            >
+                                <CalendarRange className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Workload
                                 </span>
                             </button>
                         </div>

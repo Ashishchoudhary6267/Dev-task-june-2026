@@ -1,4 +1,5 @@
 import { getSupabase } from "../../config/supabase.js";
+import { calculateWorkingMinutes } from "../../utils/businessCalendar.js";
 
 function buildDateRange(query) {
   const now = new Date();
@@ -998,6 +999,294 @@ export const getTaskRejectionDetails = async (c) => {
     }));
 
     return c.json({ data: result }, 200);
+  } catch (err) {
+    return c.json({ message: err.message }, 500);
+  }
+};
+
+export const getWorkloadSummary = async (c) => {
+  try {
+    const companyId = c.get("user").company_id;
+    if (!companyId)
+      return c.json({ message: "Could not determine company" }, 400);
+
+    const query = c.req.query();
+    const supabase = getSupabase(c.env);
+
+    // Target date defaults to today in IST
+    const dateStr = query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+    // 1. Fetch company settings
+    const { data: company, error: companyErr } = await supabase
+      .from("companies")
+      .select("work_start_time, work_end_time, working_days")
+      .eq("id", companyId)
+      .limit(1)
+      .single();
+
+    if (companyErr) return c.json({ message: companyErr.message }, 400);
+
+    // 2. Fetch holidays
+    const { data: holidays, error: holidaysErr } = await supabase
+      .from("company_holidays")
+      .select("holiday_date")
+      .eq("company_id", companyId);
+
+    if (holidaysErr) return c.json({ message: holidaysErr.message }, 400);
+
+    // 3. Compute Daily Capacity
+    const startH_M = company?.work_start_time || '09:30';
+    const endH_M = company?.work_end_time || '18:30';
+    const dayStart = new Date(`${dateStr}T00:00:00+05:30`);
+    const dayEnd = new Date(`${dateStr}T23:59:59+05:30`);
+    const dailyCapacity = calculateWorkingMinutes(dayStart, dayEnd, company, holidays);
+
+    // 4. Compute remainingCapacityFromNow
+    let remainingCapacityFromNow = 0;
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+
+    if (dateStr > todayStr) {
+      remainingCapacityFromNow = dailyCapacity;
+    } else if (dateStr === todayStr) {
+      const [eh, em] = endH_M.split(':').map(Number);
+      const todayEnd = new Date(`${todayStr}T${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00+05:30`);
+      remainingCapacityFromNow = calculateWorkingMinutes(now, todayEnd, company, holidays);
+    } else {
+      remainingCapacityFromNow = 0;
+    }
+
+    // 5. Fetch members
+    const { data: members, error: membersError } = await supabase
+      .from("users")
+      .select("id, name, platform_role, workflow_role, is_active")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .in("platform_role", ["member", "controller"]);
+
+    if (membersError) return c.json({ message: membersError.message }, 400);
+    if (!members || members.length === 0) return c.json({ data: [] }, 200);
+
+    const memberIds = members.map((m) => m.id);
+
+    // 6. Fetch all tasks due on the target day for these members
+    const targetDayStartISO = dayStart.toISOString();
+    const targetDayEndISO = dayEnd.toISOString();
+
+    const { data: tasks, error: tasksError } = await supabase
+      .from("tasks")
+      .select("id, title, status, estimated_minutes, total_working_minutes, assigned_user_id, due_date")
+      .eq("company_id", companyId)
+      .in("assigned_user_id", memberIds)
+      .gte("due_date", targetDayStartISO)
+      .lte("due_date", targetDayEndISO);
+
+    if (tasksError) return c.json({ message: tasksError.message }, 400);
+
+    // 7. Calculate metrics for each member
+    const result = members.map((member) => {
+      const memberTasks = (tasks || []).filter((t) => t.assigned_user_id === member.id);
+
+      const assignedToday = memberTasks.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+
+      const completedTasks = memberTasks.filter((t) => ["COMPLETED", "APPROVED"].includes(t.status));
+      const completedAllocated = completedTasks.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+      const completedActual = completedTasks.reduce((sum, t) => sum + (t.total_working_minutes || 0), 0);
+
+      const remainingTasks = memberTasks.filter((t) => !["COMPLETED", "APPROVED"].includes(t.status));
+      const remaining = remainingTasks.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+
+      const occupancy = dailyCapacity > 0 ? Math.round((assignedToday / dailyCapacity) * 100) : 0;
+
+      // Smart-Estimation Status thresholds:
+      // "No load"  — capacity=0 or no tasks assigned
+      // "Delayed"  — any incomplete task has a due_date already in the past
+      // "Behind"   — remaining effort > remaining working capacity today
+      // "Ahead"    — remaining effort <= remainingCapacityFromNow × 0.8 (20% buffer)
+      // "On time"  — otherwise
+      let status = "On time";
+      if (dailyCapacity === 0 || assignedToday === 0) {
+        status = "No load";
+      } else {
+        const isDelayed = remainingTasks.some((t) => t.due_date && new Date(t.due_date) < now);
+        if (isDelayed) {
+          status = "Delayed";
+        } else if (remaining > remainingCapacityFromNow) {
+          status = "Behind";
+        } else if (remaining <= remainingCapacityFromNow * 0.8) {
+          status = "Ahead";
+        } else {
+          status = "On time";
+        }
+      }
+
+      return {
+        id: member.id,
+        name: member.name,
+        role: member.workflow_role || member.platform_role,
+        capacity: dailyCapacity,
+        assignedToday,
+        completedAllocated,
+        completedActual,
+        remaining,
+        occupancy,
+        status,
+        isWorkingDay: dailyCapacity > 0,
+      };
+    });
+
+    return c.json({ data: result }, 200);
+  } catch (err) {
+    return c.json({ message: err.message }, 500);
+  }
+};
+
+export const getMemberWorkloadDetail = async (c) => {
+  try {
+    const companyId = c.get("user").company_id;
+    if (!companyId)
+      return c.json({ message: "Could not determine company" }, 400);
+
+    const userId = c.req.param("userId");
+    const query = c.req.query();
+    const supabase = getSupabase(c.env);
+
+    // Target date defaults to today in IST
+    const dateStr = query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+    // 1. Fetch company settings
+    const { data: company, error: companyErr } = await supabase
+      .from("companies")
+      .select("work_start_time, work_end_time, working_days")
+      .eq("id", companyId)
+      .limit(1)
+      .single();
+
+    if (companyErr) return c.json({ message: companyErr.message }, 400);
+
+    // 2. Fetch holidays
+    const { data: holidays, error: holidaysErr } = await supabase
+      .from("company_holidays")
+      .select("holiday_date")
+      .eq("company_id", companyId);
+
+    if (holidaysErr) return c.json({ message: holidaysErr.message }, 400);
+
+    // 3. Compute Daily Capacity
+    const startH_M = company?.work_start_time || '09:30';
+    const endH_M = company?.work_end_time || '18:30';
+    const dayStart = new Date(`${dateStr}T00:00:00+05:30`);
+    const dayEnd = new Date(`${dateStr}T23:59:59+05:30`);
+    const dailyCapacity = calculateWorkingMinutes(dayStart, dayEnd, company, holidays);
+
+    // 4. Compute remainingCapacityFromNow
+    let remainingCapacityFromNow = 0;
+    const now = new Date();
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+
+    if (dateStr > todayStr) {
+      remainingCapacityFromNow = dailyCapacity;
+    } else if (dateStr === todayStr) {
+      const [eh, em] = endH_M.split(':').map(Number);
+      const todayEnd = new Date(`${todayStr}T${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00+05:30`);
+      remainingCapacityFromNow = calculateWorkingMinutes(now, todayEnd, company, holidays);
+    } else {
+      remainingCapacityFromNow = 0;
+    }
+
+    // 5. Fetch user's tasks due on target day
+    const targetDayStartISO = dayStart.toISOString();
+    const targetDayEndISO = dayEnd.toISOString();
+
+    const { data: tasks, error: tasksError } = await supabase
+      .from("tasks")
+      .select(`
+        id, title, status, estimated_minutes, total_working_minutes,
+        due_date, assigned_at, submitted_at, approved_at, is_manual,
+        instance:instance_id(id, name, client:client_id(id, name))
+      `)
+      .eq("company_id", companyId)
+      .eq("assigned_user_id", userId)
+      .gte("due_date", targetDayStartISO)
+      .lte("due_date", targetDayEndISO);
+
+    if (tasksError) return c.json({ message: tasksError.message }, 400);
+
+    // Shape tasks list (includes timestamps for UI display)
+    const taskList = (tasks || []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      estimated_minutes: t.estimated_minutes || 0,
+      total_working_minutes: t.total_working_minutes || 0,
+      due_date: t.due_date,
+      assigned_at: t.assigned_at,
+      submitted_at: t.submitted_at,
+      approved_at: t.approved_at,
+      instance: t.instance?.name || "—",
+      client: t.instance?.client?.name || "—",
+      is_manual: t.is_manual || false,
+    }));
+
+    // Shape completion history comparison list
+    const completedTasks = (tasks || []).filter((t) => ["COMPLETED", "APPROVED"].includes(t.status));
+    const completionHistory = completedTasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      allocated: t.estimated_minutes || 0,
+      actual: t.total_working_minutes || 0,
+    }));
+
+    // Calculate daily totals
+    const assigned = (tasks || []).reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+    const completedAllocated = completedTasks.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+    const completedActual = completedTasks.reduce((sum, t) => sum + (t.total_working_minutes || 0), 0);
+
+    const remainingTasks = (tasks || []).filter((t) => !["COMPLETED", "APPROVED"].includes(t.status));
+    const remaining = remainingTasks.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+    const occupancy = dailyCapacity > 0 ? Math.round((assigned / dailyCapacity) * 100) : 0;
+
+    // Smart-Estimation Status thresholds:
+    // "No load"  — capacity=0 or no tasks assigned
+    // "Delayed"  — any incomplete task has a due_date already in the past
+    // "Behind"   — remaining effort > remaining working capacity today
+    // "Ahead"    — remaining effort <= remainingCapacityFromNow × 0.8 (20% buffer)
+    // "On time"  — otherwise
+    let status = "On time";
+    if (dailyCapacity === 0 || assigned === 0) {
+      status = "No load";
+    } else {
+      const isDelayed = remainingTasks.some((t) => t.due_date && new Date(t.due_date) < now);
+      if (isDelayed) {
+        status = "Delayed";
+      } else if (remaining > remainingCapacityFromNow) {
+        status = "Behind";
+      } else if (remaining <= remainingCapacityFromNow * 0.8) {
+        status = "Ahead";
+      } else {
+        status = "On time";
+      }
+    }
+
+    const dailyTotals = {
+      capacity: dailyCapacity,
+      assigned,
+      completedAllocated,
+      completedActual,
+      remaining,
+      occupancy,
+      status,
+      isWorkingDay: dailyCapacity > 0,
+    };
+
+    return c.json({
+      data: {
+        taskList,
+        completionHistory,
+        dailyTotals,
+      }
+    }, 200);
+
   } catch (err) {
     return c.json({ message: err.message }, 500);
   }
