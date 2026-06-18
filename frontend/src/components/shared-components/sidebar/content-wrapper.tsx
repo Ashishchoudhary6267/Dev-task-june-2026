@@ -38,11 +38,23 @@ export default function ContentWrapper({ children }: { children: React.ReactNode
     // NotificationBell UI components are pure renderers — they don't subscribe.
     useNotificationSubscription();
 
-    const isAdmin = user?.platform_role === 'admin';
-    const noSidebarPages = ['/login', '/register', '/forgot-password', '/reset-password', '/landing'];
+    const [isMounted, setIsMounted] = useState(false);
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
-    // No offset on auth pages or for admins
-    const isFullWidth = noSidebarPages.includes(pathname) || isAdmin;
+    const noSidebarPages = [
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/reset-password',
+        '/landing',
+        '/auth/pending',
+        '/auth/callback'
+    ];
+
+    // No offset on auth pages
+    const isFullWidth = noSidebarPages.some(page => pathname === page || pathname.startsWith(page + '/'));
 
     const userInitials = user?.name
         ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)

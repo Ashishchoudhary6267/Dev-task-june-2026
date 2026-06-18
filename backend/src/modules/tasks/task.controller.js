@@ -799,3 +799,44 @@ export const reopenTaskForClientRevision = async (c) => {
         return c.json({ message: 'Internal Server Error' }, 500);
     }
 };
+
+export const updateTaskNote = async (c) => {
+    try {
+        const taskId = c.req.param('id');
+        const { notes } = await c.req.json();
+        const user = c.get("user");
+        const company_id = user.company_id;
+
+        const supabase = getSupabase(c.env);
+
+        // 1. Fetch current task to check company_id
+        const { data: task, error: taskError } = await supabase
+            .from("tasks")
+            .select("company_id")
+            .eq("id", taskId)
+            .single();
+
+        if (taskError || !task) return c.json({ message: "Task not found" }, 404);
+
+        // Security check: ensure task belongs to user's company
+        if (task.company_id !== company_id) return c.json({ message: "Unauthorized access to task" }, 403);
+
+        const { data: updated, error: updateError } = await supabase
+            .from("tasks")
+            .update({
+                notes: notes || null,
+                updated_at: new Date().toISOString()
+            })
+            .eq("id", taskId)
+            .select()
+            .single();
+
+        if (updateError) return c.json({ message: updateError.message }, 400);
+
+        return c.json({ message: "Task notes updated successfully", task: updated }, 200);
+    } catch (err) {
+        console.error("Update Task Notes Error:", err);
+        return c.json({ message: "Internal server error" }, 500);
+    }
+};
+

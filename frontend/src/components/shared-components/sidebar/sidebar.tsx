@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useSidebarStore } from '@/lib/zustand/sidebar/sidebar';
 import { useAuthStore } from '@/lib/zustand/user/user';
@@ -24,9 +24,13 @@ import {
     CheckSquare2,
     Zap,
     CalendarClock,
+    Activity,
+    AlertCircle,
+    AlertTriangle,
+    Shield,
 } from 'lucide-react';
 import styles from './sidebar.module.css';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { NavItem } from '@/lib/types/auth';
 import ProfileModal from '@/components/profile/profile-modal';
 import { usePermissions } from '@/lib/hooks/usePermissions';
@@ -34,14 +38,33 @@ import { usePermissions } from '@/lib/hooks/usePermissions';
 
 
 const Sidebar = () => {
+    const [isMounted, setIsMounted] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const currentTab = searchParams.get('tab');
     const { isCollapsed, toggleSidebar, isMobileOpen, setMobileOpen } = useSidebarStore();
     const { user, logout } = useAuthStore();
     const [showProfileModal, setShowProfileModal] = useState(false);
     const { hasAccess } = usePermissions();
 
-    if (pathname === '/login' || pathname === '/landing' || pathname === '/auth/pending' || pathname === '/auth/callback' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/register' || user?.platform_role === 'admin') return null;
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) return null;
+
+    const noSidebarPaths = [
+        '/login',
+        '/landing',
+        '/auth/pending',
+        '/auth/callback',
+        '/forgot-password',
+        '/reset-password',
+        '/register'
+    ];
+
+    if (noSidebarPaths.some(path => pathname === path || pathname.startsWith(path + '/'))) return null;
 
     const handleLogout = () => {
         logout();
@@ -111,13 +134,156 @@ const Sidebar = () => {
                     {/* Dashboard */}
                     <button
                         onClick={() => handleNavClick('/dashboard')}
-                        className={cn(styles.navItem, isActive('/dashboard') && styles.active)}
+                        className={cn(styles.navItem, (pathname === '/dashboard' || pathname === '/dashboard/controller' || pathname === '/dashboard/admin') && styles.active)}
                     >
                         <LayoutDashboard className="h-5 w-5" />
                         <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
                             Dashboard
                         </span>
                     </button>
+
+                    {/* Admin Dashboard Sub-tabs */}
+                    {user?.platform_role === 'admin' && (
+                        <div className={cn("flex flex-col gap-1 my-1", !isCollapsed && "pl-4 border-l border-border/50 ml-4")}>
+                            {/* Users */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=users')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && (currentTab === 'users' || !currentTab)) && styles.active)}
+                            >
+                                <Users className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Users
+                                </span>
+                            </button>
+
+                            {/* Templates */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=templates')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'templates') && styles.active)}
+                            >
+                                <File className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Templates
+                                </span>
+                            </button>
+
+                            {/* Clients */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=clients')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'clients') && styles.active)}
+                            >
+                                <Activity className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Clients
+                                </span>
+                            </button>
+
+                            {/* Permissions */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=permissions')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'permissions') && styles.active)}
+                            >
+                                <Shield className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Permissions
+                                </span>
+                            </button>
+
+                            {/* Performance */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=performance')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'performance') && styles.active)}
+                            >
+                                <BarChart3 className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Performance
+                                </span>
+                            </button>
+
+                            {/* Reports */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=reports')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'reports') && styles.active)}
+                            >
+                                <File className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Reports
+                                </span>
+                            </button>
+
+                            {/* Settings */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/admin?tab=settings')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/admin' && currentTab === 'settings') && styles.active)}
+                            >
+                                <Settings className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Settings
+                                </span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Controller Dashboard Sub-tabs */}
+                    {(user?.platform_role === 'controller' || (user?.platform_role === 'member' && user?.workflow_role === 'interim_manager')) && (
+                        <div className={cn("flex flex-col gap-1 my-1", !isCollapsed && "pl-4 border-l border-border/50 ml-4")}>
+                            {/* Active Instances */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/controller?tab=instances')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/controller' && (currentTab === 'instances' || !currentTab)) && styles.active)}
+                            >
+                                <Activity className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Active Instances
+                                </span>
+                            </button>
+
+                            {/* Team Members */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/controller?tab=users')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/controller' && currentTab === 'users') && styles.active)}
+                            >
+                                <Users className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Team Members
+                                </span>
+                            </button>
+
+                            {/* Overdue Task */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/controller?tab=overdue')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/controller' && currentTab === 'overdue') && styles.active)}
+                            >
+                                <AlertCircle className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Overdue Task
+                                </span>
+                            </button>
+
+                            {/* Task Rejections */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/controller?tab=rejections')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/controller' && currentTab === 'rejections') && styles.active)}
+                            >
+                                <AlertTriangle className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    Task Rejections
+                                </span>
+                            </button>
+
+                            {/* SLA Request */}
+                            <button
+                                onClick={() => handleNavClick('/dashboard/controller?tab=sla-requests')}
+                                className={cn(styles.navItem, (pathname === '/dashboard/controller' && currentTab === 'sla-requests') && styles.active)}
+                            >
+                                <CalendarClock className="h-5 w-5" />
+                                <span className={cn(styles.navItemLabel, (isCollapsed && !isMobileOpen) && styles.hidden)}>
+                                    SLA Request
+                                </span>
+                            </button>
+                        </div>
+                    )}
+
 
                     {/* Dashboard for Controller */}
                     {(user?.platform_role === 'controller' || (user?.platform_role === 'member' && user?.workflow_role === 'interim_manager')) && (

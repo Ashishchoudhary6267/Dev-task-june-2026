@@ -152,6 +152,7 @@ export interface LiveTask {
     task_reassignments?: any[];
     task_sla_extensions?: any[];
     comments?: TaskComment[];
+    notes?: string;
 }
 
 export interface TaskComment {
@@ -267,6 +268,7 @@ export interface Task {
     comments?: TaskComment[];
 
     due_category?: 'OVERDUE' | 'DUE_TODAY' | 'DUE_TOMORROW' | 'ACTIVE';
+    notes?: string;
 }
 
 export interface ManualTask {

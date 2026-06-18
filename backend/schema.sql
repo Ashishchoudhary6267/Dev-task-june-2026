@@ -584,3 +584,50 @@ ALTER TABLE public.task_approval_levels
   ADD COLUMN IF NOT EXISTS allocated_minutes integer,
   ADD COLUMN IF NOT EXISTS used_minutes integer DEFAULT 0,
   ADD COLUMN IF NOT EXISTS due_date timestamp with time zone;
+
+-- Heartbeat, Push Notifications, Notification Settings, and Client Approvals migrations
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS is_online boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS last_seen_at timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS login_count integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS push_notifications_enabled boolean DEFAULT false;
+
+ALTER TABLE public.instances
+  ADD COLUMN IF NOT EXISTS pending_client_approval boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS client_approval_task_id uuid REFERENCES public.tasks(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  endpoint text NOT NULL,
+  p256dh text NOT NULL,
+  auth text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT push_subscriptions_pkey PRIMARY KEY (user_id, endpoint)
+);
+
+CREATE TABLE IF NOT EXISTS public.company_notification_settings (
+  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  task_assigned boolean NOT NULL DEFAULT true,
+  task_submitted boolean NOT NULL DEFAULT true,
+  task_approved boolean NOT NULL DEFAULT false,
+  task_rejected boolean NOT NULL DEFAULT true,
+  task_completed boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT company_notification_settings_pkey PRIMARY KEY (company_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.client_approvals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  instance_id uuid NOT NULL REFERENCES public.instances(id) ON DELETE CASCADE,
+  task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'PENDING'::text CHECK (status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text])),
+  client_comment text,
+  decision_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  decision_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT client_approvals_pkey PRIMARY KEY (id)
+);
+

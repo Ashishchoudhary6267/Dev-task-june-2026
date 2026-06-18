@@ -6,6 +6,7 @@ This repository is a **self-contained base project** for a coding assignment. It
 
 ---
 
+
 ## Repository structure
 
 ```

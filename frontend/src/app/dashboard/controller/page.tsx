@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/zustand/user/user';
 import { useUserStore } from '@/lib/zustand/user/addUser';
 import { useProjectStore } from '@/lib/zustand/projects/createproject';
 import { useTaskStore } from '@/lib/zustand/tasks/tasks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AccessControlProvider } from '@/lib/contexts/access-control-context';
 import {
 
@@ -50,11 +50,15 @@ import {
 } from 'lucide-react';
 import { HowToModal } from '@/components/how-to/how-to-modal';
 import { useNotificationStore } from '@/lib/zustand/notifications/notifications';
-export default function ControllerDashboard() {
+function ControllerDashboardContent() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
     const { addToast } = useToast();
-    const [activeTab, setActiveTab] = useState<Tab>('instances');
+    const searchParams = useSearchParams();
+    const activeTab = (searchParams.get('tab') as Tab) || 'instances';
+    const setActiveTab = (newTab: Tab) => {
+        router.push(`/dashboard/controller?tab=${newTab}`);
+    };
     const [userSearch, setUserSearch] = useState('');
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
@@ -173,72 +177,7 @@ export default function ControllerDashboard() {
         }
     };
 
-    // Stats cards data
-    const statCards = [
-        {
-            label: 'Active Instances',
-            value: stats?.activeInstances || '0',
-            sub: 'Running workflows',
-            icon: <Users className="h-5 w-5 text-blue-600" />,
-            onClick: () => setActiveTab('instances')
-        },
-        {
-            label: 'Team Members',
-            value: stats?.users || '0',
-            sub: 'Active Users',
-            icon: <Users className="h-5 w-5 text-blue-600" />,
-            onClick: () => setActiveTab('users')
-        },
-        // {
-        //     label: 'Task Templates',
-        //     value: stats?.projects || '0',
-        //     sub: 'Active blueprints for Instances',
-        //     icon: <FolderKanban className="h-5 w-5 text-blue-600" />,
-        //     onClick: () => setActiveTab('projects')
-        // },
-        // {
-        //     label: 'Active Tasks',
-        //     value: stats?.activeTasks || '0',
-        //     sub: 'Currently processing',
-        //     icon: <Activity className="h-5 w-5 text-blue-600" />,
-        //     onClick: () => setActiveTab('tasks')
-        // },
-        // {
-        //     label: 'Instance Uptime',
-        //     value: '99.9%',
-        //     sub: 'High availability',
-        //     icon: <Clock className="h-5 w-5 text-blue-600" />,
-        // },
-        {
-            label: 'Overdue Tasks',
-            value: stats?.overdueTasks || '0',
-            sub: 'Tasks past due date',
-            icon: <AlertCircle className="h-5 w-5 text-blue-600" />,
-            onClick: () => setActiveTab('overdue')
-        },
-        {
-            label: 'Task Rejections',
-            value: rejectionCount.toString(),
-            sub: 'Total rejection events',
-            icon: <AlertTriangle className="h-5 w-5 text-red-600" />,
-            onClick: () => setActiveTab('rejections')
-        },
-        {
-            label: 'TAT Extension Requests',
-            value: slaRequestCount.toString(),
-            sub: 'Pending extension requests',
-            icon: <Clock className="h-5 w-5 text-orange-600" />,
-            onClick: () => setActiveTab('sla-requests')
-        },
-        // {
-        //     label: 'Awaiting Client Approvals',
-        //     value: stats?.pendingClientApprovals || '0',
-        //     sub: 'Workflows awaiting client approvals',
-        //     icon: <MessageSquare className="h-5 w-5 text-violet-600" />,
-        //     onClick: () => setActiveTab('client-approvals')
-        // }
-
-    ];
+    // statCards array commented out to avoid unused variable errors since they are now navigated via the sidebar
 
     return (
         <AccessControlProvider>
@@ -301,36 +240,7 @@ export default function ControllerDashboard() {
                     </div>
                 </div>
 
-                {/* ─── Top Stats Grid ─── */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 py-3">
-                    {statCards?.map((stat, idx) => (
-                        <Card
-                            key={idx}
-                            onClick={stat.onClick}
-                            className="border-none shadow-sm hover:shadow-md transition-all bg-white p-4 h-full flex flex-col justify-between relative group cursor-pointer"
-                        >
-                            {/* Top row: label + icon */}
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-muted-foreground tracking-tight">{stat.label}</span>
-                                <span className="text-muted-foreground/60">{stat.icon}</span>
-                            </div>
-
-                            {/* Big number */}
-                            <div className={cn(
-                                "text-3xl font-extrabold text-foreground leading-none tracking-tight mb-1"
-                            )}>
-                                {stat.value}
-                            </div>
-
-                            {/* Description / subtext */}
-                            {
-                                stat.sub && (
-                                    <p className="text-[11px] text-muted-foreground">{stat.sub}</p>
-                                )
-                            }
-                        </Card>
-                    ))}
-                </div>
+                {/* Top Stats Grid removed since they are now navigated via the sidebar */}
 
 
 
@@ -483,4 +393,13 @@ export default function ControllerDashboard() {
         </AccessControlProvider>
     );
 }
+
+export default function ControllerDashboard() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+            <ControllerDashboardContent />
+        </Suspense>
+    );
+}
+
 

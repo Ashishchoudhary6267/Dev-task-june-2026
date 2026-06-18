@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -75,7 +76,9 @@ export default function RootLayout({
         <Providers>
           <AnalyticsInit />
           <OnboardingManager />
-          <Sidebar />
+          <Suspense fallback={null}>
+            <Sidebar />
+          </Suspense>
           <HeartbeatProvider />
           <ContentWrapper>
             <main className="min-h-screen">{children}</main>

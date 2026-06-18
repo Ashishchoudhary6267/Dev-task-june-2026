@@ -8,6 +8,7 @@ import {
     manualUnlockTask,
     updateTaskApprovalLevels,
     reopenTaskForClientRevision,
+    updateTaskNote,
 } from "./task.controller.js";
 import {
     fetchTasksByProject,
@@ -48,6 +49,7 @@ router.post("/:id/reassign-approver", authenticate, reassignapproverbycontroller
 router.put("/:id/approval-levels", authenticate, updateTaskApprovalLevels);
 router.post("/:id/manual-unlock", authenticate, manualUnlockTask);
 router.post("/:id/reopen-for-revision", authenticate, reopenTaskForClientRevision);
+router.put("/:id/notes", authenticate, updateTaskNote);
 
 
 router.get('/user-tasks/:user_id', authenticate, fetchusertaskfordeletion)

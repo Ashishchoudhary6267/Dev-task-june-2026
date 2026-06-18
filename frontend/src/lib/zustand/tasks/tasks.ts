@@ -62,6 +62,7 @@ interface TaskState {
     fetchTaskForUserDeletion: (user_id: string) => Promise<void>;
     fetchTaskDetails: (task_id: string) => Promise<any>;
     reassignApprover: (taskId: string, oldApproverId: string, newApproverId: string, reason?: string) => Promise<boolean>;
+    updateTaskNote: (taskId: string, notes: string) => Promise<boolean>;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -375,6 +376,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             return true;
         } catch (error: any) {
             console.error("Reassign Approver Error:", error);
+            return false;
+        }
+    },
+    updateTaskNote: async (taskId: string, notes: string) => {
+        set({ loading: true, error: null });
+        try {
+            await api.put(`/tasks/${taskId}/notes`, { notes });
+            set({ loading: false });
+            return true;
+        } catch (err: any) {
+            set({ error: err.response?.data?.message || 'Failed to update task notes', loading: false });
             return false;
         }
     }

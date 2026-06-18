@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useAuthStore } from '@/lib/zustand/user/user';
 import { useUserStore } from '@/lib/zustand/user/addUser';
 import { useProjectStore } from '@/lib/zustand/projects/createproject';
 import { useTaskStore } from '@/lib/zustand/tasks/tasks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Users, FolderKanban, CheckSquare, Activity, LogOut, BarChart3, Settings, Shield, Info
 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import BottomNav from '@/components/dashboard/bottom-nav';
+// import BottomNav from '@/components/dashboard/bottom-nav';
 import { Button, Input, Badge, Avatar, AvatarFallback, Select, Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuItem, Card } from '@/components/ui';
 import { AddUserModal } from '@/components/user/add-user-modal';
 import { AddClientModal } from '@/components/clients/add-client-modal';
@@ -35,7 +35,7 @@ import ControllerPerformance from '@/components/dashboard/controller-performance
 type Tab = 'users' | 'tasks' | 'clients' | 'templates' | 'permissions' | 'reports' | 'settings' | 'holidays' | 'performance';
 
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
     const { users, usercount, loading: usersLoading } = useUserStore();
@@ -43,7 +43,11 @@ export default function AdminDashboard() {
     const { allTasks, loading: tasksLoading } = useTaskStore();
     const { addToast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<Tab>('users');
+    const searchParams = useSearchParams();
+    const activeTab = (searchParams.get('tab') as Tab) || 'users';
+    const setActiveTab = (newTab: Tab) => {
+        router.push(`/dashboard/admin?tab=${newTab}`);
+    };
     const [userSearch, setUserSearch] = useState('');
     const [userRoleFilter, setUserRoleFilter] = useState('all');
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
@@ -93,17 +97,7 @@ export default function AdminDashboard() {
 
     // Lazy load full data based on active tab
 
-    const tabs: { key: Tab; label: string }[] = [
-        // { key: 'overview', label: 'Overview' },
-
-        { key: 'users', label: 'Users' },
-        { key: 'templates', label: 'Templates' },
-        // { key: 'tasks', label: 'Tasks' },
-        { key: 'clients', label: 'Clients' },
-        { key: 'permissions', label: 'Permissions' },
-        { key: 'performance', label: 'Performance' },
-        { key: 'reports', label: 'Reports' },
-        { key: 'settings', label: 'Settings' },];
+    // tabs list commented out to avoid unused variable warnings since navigation is sidebar-driven now
 
 
 
@@ -149,10 +143,8 @@ export default function AdminDashboard() {
                     {/* Mobile dropdown */}
                     <div className="sm:hidden shrink-0">
                         <DropdownMenu>
-                            <DropdownMenuTrigger>
-                                <button className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold ring-2 ring-primary/20 focus:outline-none">
-                                    {user?.name?.slice(0, 1).toUpperCase() || 'A'}
-                                </button>
+                            <DropdownMenuTrigger className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold ring-2 ring-primary/20 focus:outline-none">
+                                {user?.name?.slice(0, 1).toUpperCase() || 'A'}
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
                                 {/* User info */}
@@ -312,57 +304,7 @@ export default function AdminDashboard() {
             </div>
 
 
-            {/* ─── Tab Bar (Desktop - Premium Pill Design) ─── */}
-            <div className="hidden md:block mb-8 mt-2 top-[72px] z-30 bg-background/50 backdrop-blur-sm -mx-2 px-2 py-2">
-                <div className="p-1 bg-muted/40 rounded-2xl border border-border/40 inline-flex items-center gap-1">
-                    {tabs.map((t) => {
-                        const isActive = activeTab === t.key;
-                        let count = 0;
-                        if (t.key === 'users') count = usercount || 0;
-                        if (t.key === 'templates') count = projectscount || 0;
-                        if (t.key === 'tasks') count = stats?.activeTasks || 0;
-                        // if (t.key === 'clients') count = stats?.clients || 0;
-
-                        return (
-                            <button
-                                key={t.key}
-                                onClick={() => setActiveTab(t.key)}
-                                className={cn(
-                                    "px-5 py-2.5 text-sm font-bold transition-all duration-300 rounded-xl whitespace-nowrap outline-none flex items-center gap-2",
-                                    isActive
-                                        ? "bg-background text-primary shadow-lg shadow-black/5 ring-1 ring-border/20 translate-y-0"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                                )}
-                            >
-                                {t.label}
-                                {count > 0 && (
-                                    <span className={cn(
-                                        "text-[10px] px-1.5 py-0 h-5 min-w-[20px] inline-flex items-center justify-center rounded-full transition-colors",
-                                        isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                                    )}>
-                                        {count}
-                                    </span>
-                                )}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* ─── Bottom Nav (Mobile only) ─── */}
-            <BottomNav
-                items={[
-                    { id: 'users', label: 'Users', icon: Users },
-                    { id: 'templates', label: 'Projects', icon: FolderKanban },
-                    // { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-                    { id: 'clients', label: 'Clients', icon: Activity },
-                    { id: 'reports', label: 'Reports', icon: BarChart3 },
-                    { id: 'permissions', label: 'Permissions', icon: Shield },
-                    { id: 'settings', label: 'Settings', icon: Settings },
-                ]}
-                activeId={activeTab}
-                onTabChange={(id) => setActiveTab(id as Tab)}
-            />
+            {/* Navigation is now driven via the left sidebar */}
 
             {/* ─── Tab Content ─── */}
             {/* {activeTab === 'overview' && (
@@ -441,6 +383,14 @@ export default function AdminDashboard() {
             <AddUserModal open={isAddUserOpen} onOpenChange={setIsAddUserOpen} />
             <AddClientModal open={isAddClientOpen} onOpenChange={setIsAddClientOpen} />
         </div >
+    );
+}
+
+export default function AdminDashboard() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+            <AdminDashboardContent />
+        </Suspense>
     );
 }
 
