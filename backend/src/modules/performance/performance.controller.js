@@ -1014,7 +1014,8 @@ export const getWorkloadSummary = async (c) => {
     const supabase = getSupabase(c.env);
 
     // Target date defaults to today in IST
-    const dateStr = query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const fromStr = query.from || query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const toStr = query.to || query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
     // 1. Fetch company settings
     const { data: company, error: companyErr } = await supabase
@@ -1037,23 +1038,20 @@ export const getWorkloadSummary = async (c) => {
     // 3. Compute Daily Capacity
     const startH_M = company?.work_start_time || '09:30';
     const endH_M = company?.work_end_time || '18:30';
-    const dayStart = new Date(`${dateStr}T00:00:00+05:30`);
-    const dayEnd = new Date(`${dateStr}T23:59:59+05:30`);
+    const dayStart = new Date(`${fromStr}T00:00:00+05:30`);
+    const dayEnd = new Date(`${toStr}T23:59:59+05:30`);
     const dailyCapacity = calculateWorkingMinutes(dayStart, dayEnd, company, holidays);
 
     // 4. Compute remainingCapacityFromNow
     let remainingCapacityFromNow = 0;
     const now = new Date();
-    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
 
-    if (dateStr > todayStr) {
-      remainingCapacityFromNow = dailyCapacity;
-    } else if (dateStr === todayStr) {
-      const [eh, em] = endH_M.split(':').map(Number);
-      const todayEnd = new Date(`${todayStr}T${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00+05:30`);
-      remainingCapacityFromNow = calculateWorkingMinutes(now, todayEnd, company, holidays);
-    } else {
+    if (now > dayEnd) {
       remainingCapacityFromNow = 0;
+    } else if (now < dayStart) {
+      remainingCapacityFromNow = dailyCapacity;
+    } else {
+      remainingCapacityFromNow = calculateWorkingMinutes(now, dayEnd, company, holidays);
     }
 
     // 5. Fetch members
@@ -1152,7 +1150,8 @@ export const getMemberWorkloadDetail = async (c) => {
     const supabase = getSupabase(c.env);
 
     // Target date defaults to today in IST
-    const dateStr = query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const fromStr = query.from || query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const toStr = query.to || query.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
     // 1. Fetch company settings
     const { data: company, error: companyErr } = await supabase
@@ -1175,23 +1174,20 @@ export const getMemberWorkloadDetail = async (c) => {
     // 3. Compute Daily Capacity
     const startH_M = company?.work_start_time || '09:30';
     const endH_M = company?.work_end_time || '18:30';
-    const dayStart = new Date(`${dateStr}T00:00:00+05:30`);
-    const dayEnd = new Date(`${dateStr}T23:59:59+05:30`);
+    const dayStart = new Date(`${fromStr}T00:00:00+05:30`);
+    const dayEnd = new Date(`${toStr}T23:59:59+05:30`);
     const dailyCapacity = calculateWorkingMinutes(dayStart, dayEnd, company, holidays);
 
     // 4. Compute remainingCapacityFromNow
     let remainingCapacityFromNow = 0;
     const now = new Date();
-    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
 
-    if (dateStr > todayStr) {
-      remainingCapacityFromNow = dailyCapacity;
-    } else if (dateStr === todayStr) {
-      const [eh, em] = endH_M.split(':').map(Number);
-      const todayEnd = new Date(`${todayStr}T${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00+05:30`);
-      remainingCapacityFromNow = calculateWorkingMinutes(now, todayEnd, company, holidays);
-    } else {
+    if (now > dayEnd) {
       remainingCapacityFromNow = 0;
+    } else if (now < dayStart) {
+      remainingCapacityFromNow = dailyCapacity;
+    } else {
+      remainingCapacityFromNow = calculateWorkingMinutes(now, dayEnd, company, holidays);
     }
 
     // 5. Fetch user's tasks due on target day

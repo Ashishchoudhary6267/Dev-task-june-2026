@@ -143,9 +143,9 @@ const Sidebar = () => {
                         </span>
                     </button>
 
-                    {/* Admin Dashboard Sub-tabs */}
+                    {/* Admin Dashboard Items */}
                     {user?.platform_role === 'admin' && (
-                        <div className={cn("flex flex-col gap-1 my-1", !isCollapsed && "pl-4 border-l border-border/50 ml-4")}>
+                        <div className="flex flex-col gap-1 mt-1">
                             {/* Users */}
                             <button
                                 onClick={() => handleNavClick('/dashboard/admin?tab=users')}
@@ -236,9 +236,9 @@ const Sidebar = () => {
                         </div>
                     )}
 
-                    {/* Controller Dashboard Sub-tabs */}
+                    {/* Controller Dashboard Items */}
                     {(user?.platform_role === 'controller' || (user?.platform_role === 'member' && user?.workflow_role === 'interim_manager')) && (
-                        <div className={cn("flex flex-col gap-1 my-1", !isCollapsed && "pl-4 border-l border-border/50 ml-4")}>
+                        <div className="flex flex-col gap-1 mt-1">
                             {/* Active Instances */}
                             <button
                                 onClick={() => handleNavClick('/dashboard/controller?tab=instances')}
@@ -294,7 +294,7 @@ const Sidebar = () => {
                                 </span>
                             </button>
 
-                            {/* Workload — Controller & Interim Manager only */}
+                            {/* Workload */}
                             <button
                                 onClick={() => handleNavClick('/dashboard/controller?tab=workload')}
                                 className={cn(styles.navItem, (pathname === '/dashboard/controller' && currentTab === 'workload') && styles.active)}
@@ -304,13 +304,7 @@ const Sidebar = () => {
                                     Workload
                                 </span>
                             </button>
-                        </div>
-                    )}
 
-
-                    {/* Dashboard for Controller */}
-                    {(user?.platform_role === 'controller' || (user?.platform_role === 'member' && user?.workflow_role === 'interim_manager')) && (
-                        <div>
                             <button
                                 onClick={() => handleNavClick('/dashboard/controller/own-tasks')}
                                 className={cn(styles.navItem, isActive('/dashboard/controller/own-tasks') && styles.active)}

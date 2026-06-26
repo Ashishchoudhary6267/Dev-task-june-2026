@@ -49,6 +49,16 @@ node scripts/seed.js
 
 This creates a sample company, clients, a project template, and four login-able accounts (`superadmin@example.com`, `admin@example.com`, `controller@example.com`, `member@example.com` — password `Password123!`). The required dependencies (`@supabase/supabase-js`, `dotenv`) are already in `package.json`, so they install with `npm install`.
 
+### 5b. Seed live workload data (instances, tasks & submissions)
+For features that need live execution data (e.g. the Workload Management module), also run:
+
+```bash
+node scripts/seed-workload.js            # targets today (IST)
+node scripts/seed-workload.js 2026-06-22 # or a specific working day
+```
+
+This creates a live instance plus a realistic spread of tasks and submissions for one working day: a team of worker members (copywriter / designer / reviewer / marketer), completed tasks (with actual vs estimated times), in-progress, pending-approval, locked, a rejected task with a reason, an overdue task, and manual tasks — producing overloaded / on-time / ahead / delayed members. Re-runnable (it cleans up its own previously-seeded rows). Open Workload Management as a Controller or Admin and view the seeded date.
+
 ## Project layout
 
 ```

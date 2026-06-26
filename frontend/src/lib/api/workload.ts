@@ -59,19 +59,20 @@ export interface WorkloadDetailResponse {
 
 // ─── API Functions ────────────────────────────────────────────────────────────
 
-export const getWorkloadSummary = async (date?: string): Promise<WorkloadSummaryItem[]> => {
+export const getWorkloadSummary = async (from?: string, to?: string): Promise<WorkloadSummaryItem[]> => {
   const response = await api.get('/performance/workload/summary', {
-    params: date ? { date } : undefined,
+    params: (from && to) ? { from, to } : undefined,
   });
   return response.data.data;
 };
 
 export const getWorkloadDetail = async (
   userId: string,
-  date?: string
+  from?: string,
+  to?: string
 ): Promise<WorkloadDetailResponse> => {
   const response = await api.get(`/performance/workload/detail/${userId}`, {
-    params: date ? { date } : undefined,
+    params: (from && to) ? { from, to } : undefined,
   });
   return response.data.data;
 };

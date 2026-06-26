@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui';
+import { Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
 import {
   getWorkloadSummary,
   getWorkloadDetail,
@@ -18,14 +20,15 @@ const fmt = (mins: number) => {
   return h > 0 ? `${h}h ${m > 0 ? `${m}m` : ''}`.trim() : `${m}m`;
 };
 
+
 const todayISO = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
 const STATUS_CONFIG: Record<SmartStatus, { label: string; color: string; bg: string }> = {
   'No load': { label: 'No Load', color: 'text-slate-500', bg: 'bg-slate-100' },
-  'Delayed':  { label: 'Delayed',  color: 'text-red-600',   bg: 'bg-red-100'   },
-  'Behind':   { label: 'Behind',   color: 'text-orange-600',bg: 'bg-orange-100' },
-  'Ahead':    { label: 'Ahead',    color: 'text-emerald-600',bg: 'bg-emerald-100'},
-  'On time':  { label: 'On Time',  color: 'text-blue-600',  bg: 'bg-blue-100'  },
+  'Delayed': { label: 'Delayed', color: 'text-red-600', bg: 'bg-red-100' },
+  'Behind': { label: 'Behind', color: 'text-orange-600', bg: 'bg-orange-100' },
+  'Ahead': { label: 'Ahead', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  'On time': { label: 'On Time', color: 'text-blue-600', bg: 'bg-blue-100' },
 };
 
 // ─── Occupancy Bar ────────────────────────────────────────────────────────────
@@ -39,9 +42,7 @@ function OccupancyBar({ pct }: { pct: number }) {
         className={`h-2 rounded-full transition-all duration-500 ${isOver ? 'bg-red-500' : 'bg-blue-500'}`}
         style={{ width: `${capped}%` }}
       />
-      {isOver && (
-        <span className="absolute -top-5 right-0 text-[10px] font-bold text-red-500">{pct}%</span>
-      )}
+
     </div>
   );
 }
@@ -61,11 +62,11 @@ function StatusChip({ status }: { status: SmartStatus }) {
 
 function MemberDetailModal({
   member,
-  date,
+  dateRange,
   onClose,
 }: {
   member: WorkloadSummaryItem;
-  date: string;
+  dateRange: { from: string; to: string };
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<WorkloadDetailResponse | null>(null);
@@ -74,19 +75,19 @@ function MemberDetailModal({
 
   useEffect(() => {
     setLoading(true);
-    getWorkloadDetail(member.id, date)
+    getWorkloadDetail(member.id, dateRange.from, dateRange.to)
       .then(setDetail)
       .catch((e) => setError(e?.response?.data?.message || 'Failed to load details'))
       .finally(() => setLoading(false));
-  }, [member.id, date]);
+  }, [member.id, dateRange.from, dateRange.to]);
 
   const taskStatusColor: Record<string, string> = {
     COMPLETED: 'text-emerald-600',
-    APPROVED:  'text-emerald-600',
+    APPROVED: 'text-emerald-600',
     IN_PROGRESS: 'text-blue-600',
     PENDING_APPROVAL: 'text-amber-600',
-    REJECTED:  'text-red-600',
-    LOCKED:    'text-slate-400',
+    REJECTED: 'text-red-600',
+    LOCKED: 'text-slate-400',
   };
 
   return (
@@ -136,7 +137,7 @@ function MemberDetailModal({
               {/* Task List */}
               {detail.taskList.length > 0 ? (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Tasks Due Today</h3>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Tasks</h3>
                   <div className="space-y-2">
                     {detail.taskList.map((task) => (
                       <div key={task.id} className="flex items-start justify-between gap-2 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
@@ -161,7 +162,7 @@ function MemberDetailModal({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400 text-center py-4">No tasks due on this day.</p>
+                <p className="text-sm text-slate-400 text-center py-4">No tasks in this range.</p>
               )}
 
               {/* Completion Comparison */}
@@ -207,8 +208,14 @@ function MemberDetailModal({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+type DatePreset = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'custom';
+
 export default function WorkloadManagementTab() {
-  const [date, setDate] = useState<string>(todayISO());
+  const [preset, setPreset] = useState<DatePreset>('today');
+  const [dateRange, setDateRange] = useState<{ from: string, to: string }>({
+    from: todayISO(),
+    to: todayISO()
+  });
   const [search, setSearch] = useState('');
   const [data, setData] = useState<WorkloadSummaryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -219,14 +226,14 @@ export default function WorkloadManagementTab() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getWorkloadSummary(date);
+      const result = await getWorkloadSummary(dateRange.from, dateRange.to);
       setData(result);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load workload data.');
     } finally {
       setLoading(false);
     }
-  }, [date]);
+  }, [dateRange.from, dateRange.to]);
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
@@ -247,13 +254,101 @@ export default function WorkloadManagementTab() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Date Picker */}
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-          />
+          {/* Date Range Selector */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-2 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:bg-slate-50 transition-colors">
+                <CalendarIcon className="w-4 h-4 text-slate-500" />
+                <span className="font-medium text-slate-700">
+                  {preset === 'today' && 'Today'}
+                  {preset === 'yesterday' && 'Yesterday'}
+                  {preset === 'last7days' && 'Last 7 Days'}
+                  {preset === 'last30days' && 'Last 30 Days'}
+                  {preset === 'custom' && `${new Date(dateRange.from).toLocaleDateString('en-IN')} - ${new Date(dateRange.to).toLocaleDateString('en-IN')}`}
+                </span>
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2 bg-white rounded-xl shadow-xl border border-slate-100 outline-none z-50 mt-1">
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    setPreset('today');
+                    setDateRange({ from: todayISO(), to: todayISO() });
+                  }}
+                  className={`text-left px-3 py-2 text-sm rounded-lg transition-colors ${preset === 'today' ? 'bg-blue-50 text-blue-600 font-medium' : 'hover:bg-slate-50 text-slate-700'}`}
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => {
+                    const y = new Date();
+                    y.setDate(y.getDate() - 1);
+                    const yISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(y);
+                    setPreset('yesterday');
+                    setDateRange({ from: yISO, to: yISO });
+                  }}
+                  className={`text-left px-3 py-2 text-sm rounded-lg transition-colors ${preset === 'yesterday' ? 'bg-blue-50 text-blue-600 font-medium' : 'hover:bg-slate-50 text-slate-700'}`}
+                >
+                  Yesterday
+                </button>
+                <button
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 6);
+                    const dISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+                    setPreset('last7days');
+                    setDateRange({ from: dISO, to: todayISO() });
+                  }}
+                  className={`text-left px-3 py-2 text-sm rounded-lg transition-colors ${preset === 'last7days' ? 'bg-blue-50 text-blue-600 font-medium' : 'hover:bg-slate-50 text-slate-700'}`}
+                >
+                  Last 7 Days
+                </button>
+                <button
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 29);
+                    const dISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+                    setPreset('last30days');
+                    setDateRange({ from: dISO, to: todayISO() });
+                  }}
+                  className={`text-left px-3 py-2 text-sm rounded-lg transition-colors ${preset === 'last30days' ? 'bg-blue-50 text-blue-600 font-medium' : 'hover:bg-slate-50 text-slate-700'}`}
+                >
+                  Last 30 Days
+                </button>
+                <button
+                  onClick={() => setPreset('custom')}
+                  className={`text-left px-3 py-2 text-sm rounded-lg transition-colors ${preset === 'custom' ? 'bg-blue-50 text-blue-600 font-medium' : 'hover:bg-slate-50 text-slate-700'}`}
+                >
+                  Custom Range
+                </button>
+
+                {preset === 'custom' && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex flex-col gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">From</label>
+                      <input
+                        type="date"
+                        value={dateRange.from}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                        className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">To</label>
+                      <input
+                        type="date"
+                        value={dateRange.to}
+                        min={dateRange.from}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                        className="text-sm border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Search */}
           <input
@@ -359,7 +454,7 @@ export default function WorkloadManagementTab() {
       {selected && (
         <MemberDetailModal
           member={selected}
-          date={date}
+          dateRange={dateRange}
           onClose={() => setSelected(null)}
         />
       )}
